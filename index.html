@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BLUEPATH Phase 4 – Recording + Export</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1120px; margin: 0 auto; padding: 20px; }
+    h1 { margin: 0 0 6px; }
+    p { margin: 0 0 14px; color: #333; }
+
+    .controls {
+      background: #f4f4f4; padding: 16px; border-radius: 10px;
+      display: grid; gap: 10px; max-width: 1080px;
+    }
+    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    label { width: 170px; }
+    select, input { padding: 8px; }
+    button {
+      padding: 10px 12px; border: none; border-radius: 8px;
+      cursor: pointer; color: white;
+    }
+    #generate { background: #007bff; }
+    #play { background: #28a745; }
+    #stop { background: #dc3545; }
+    #copyJson { background: #444; }
+    #record { background: #ff9800; color: #000; }
+    #stopRecord { background: #9c27b0; }
+    #recordPlay { background: #00bcd4; color: #000; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .output { margin-top: 18px; }
+    .cards { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+    .card {
+      width: 250px; background: white; border-radius: 10px; padding: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .roman { font-weight: 800; font-size: 18px; margin-bottom: 6px; }
+    .name { margin-bottom: 6px; }
+    .notes { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    .meta { margin-top: 10px; font-size: 12px; color: #555; }
+
+    .status { font-size: 12px; color: #333; padding: 6px 10px; border-radius: 8px; background: #fff; border: 1px solid #ddd; }
+    .error {
+      background: #ffe5e5; border: 1px solid #ffb3b3; padding: 10px;
+      border-radius: 8px; color: #7a0000; margin-top: 12px;
+    }
+    .hint { font-size: 12px; color: #555; margin-top: 6px; }
+    .downloadBox {
+      margin-top: 10px;
+      background: #fff;
+      border: 1px solid #e6e6e6;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .downloadBox a { display: inline-block; margin-top: 6px; }
+
+    .melodyBox {
+      margin-top: 14px;
+      background: #fff;
+      border: 1px solid #e6e6e6;
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .melodyGrid {
+      position: relative;
+      height: 160px;
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid #eee;
+      background: linear-gradient(#fafafa, #fff);
+    }
+    .harmonyNote {
+       position: absolute;
+       height: 10px;
+       background: rgba(100, 100, 100, 0.12);
+       border: 1px solid rgba(0, 0, 0, 0.05);
+       border-radius: 2px;
+       pointer-events: none;
+       z-index: 1;
+     }
+     .melodyNote {
+       position: absolute;
+       height: 10px;
+       border-radius: 6px;
+       background: rgba(0, 123, 255, 0.65);
+       z-index: 2;
+     }
+    .phraseMarker {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 2px;
+      background: rgba(0,0,0,0.10);
+    }
+    .melodyLegend { font-size: 12px; color: #555; margin-top: 8px; }
+
+    .beatLine{
+      position:absolute;
+      top:0; bottom:0;
+      width:1px;
+      background: rgba(0,0,0,0.06);
+      pointer-events:none;
+    }
+    .measureLine{
+      background: rgba(0,0,0,0.14);
+      width:2px;
+    }
+    .barLabel{
+      position:absolute;
+      top:2px;
+      font-size:11px;
+      color:#666;
+      background: rgba(255,255,255,0.8);
+      padding: 0 4px;
+      border-radius: 6px;
+      transform: translateX(-50%);
+      pointer-events:none;
+    }
+  </style>
+
+<script src="https://unpkg.com/soundfont-player@0.15.7/dist/soundfont-player.js"></script>
+</head>
+
+<body>
+  <h1>BLUEPATH – Phase 4</h1>
+  <p>Phase 3 features + <b>recording/export</b> using Tone.Recorder (download .webm).</p>
+
+  <div class="controls">
+    <div class="row">
+      <label for="key">Key</label>
+      <select id="key">
+        <option>C</option><option>C#</option><option>Db</option>
+        <option>D</option><option>D#</option><option>Eb</option>
+        <option>E</option><option>F</option><option>F#</option><option>Gb</option>
+        <option>G</option><option>G#</option><option>Ab</option>
+        <option>A</option><option>A#</option><option>Bb</option>
+        <option>B</option>
+      </select>
+
+      <label for="mode" style="width:70px;">Mode</label>
+      <select id="mode">
+        <option value="major">Major</option>
+        <option value="minor">Minor</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label for="bars">Bars</label>
+      <input id="bars" type="range" min="1" max="16" value="4" />
+      <span id="barsLabel">4</span>
+
+      <label for="chordsPerBar" style="width:170px;">Chords per bar</label>
+      <select id="chordsPerBar">
+        <option value="1">1 (Whole notes)</option>
+        <option value="2" selected>2 (Half notes)</option>
+        <option value="4">4 (Quarter notes)</option>
+      </select>
+      <span class="hint">Form length (bars) + harmonic rhythm (chords/bar).</span>
+    </div>
+    
+    <div class="row">
+      <label for="progressionChords" style="width:170px;">Progression chords</label>
+      <input id="progressionChords" type="range" min="1" max="16" value="4" />
+      <span id="progressionChordsLabel">4</span>
+
+      <label for="progressionPlayback" style="width:170px;">Playback</label>
+      <select id="progressionPlayback">
+        <option value="oneshot" selected>One-shot</option>
+        <option value="loop">Loop</option>
+        <option value="stretch">Stretch to bars</option>
+      </select>
+      <span class="hint">Progression length is independent of bars. Playback controls how it maps onto the bar grid.</span>
+    </div>
+
+    <div class="row">
+      <label for="octave">Base octave (chords)</label>
+      <select id="octave">
+        <option>3</option>
+        <option selected>4</option>
+        <option>5</option>
+      </select>
+
+      <label for="preferAccidentals" style="width:170px;">Prefer note names</label>
+      <select id="preferAccidentals">
+        <option value="sharps" selected>Sharps (C#)</option>
+        <option value="flats">Flats (Db)</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label for="tempo">Tempo (BPM)</label>
+      <input id="tempo" type="range" min="60" max="180" value="120" />
+      <span id="tempoLabel">120</span>
+    </div>
+
+    <div class="row">
+      <label for="strumMs">Chord strum (ms)</label>
+      <input id="strumMs" type="range" min="0" max="80" value="25" />
+      <span id="strumLabel">25</span>
+    </div>
+
+    <div class="row">
+      <label for="chordPattern">Chord rhythm pattern</label>
+      <select id="chordPattern">
+        <option value="sustain" selected>Sustain (Whole bar)</option>
+        <option value="sustainAccent">Sustain + Reinforce (Accent on 1)</option>
+        <option value="hits13">Hits on 1 &amp; 3</option>
+        <option value="hits24">Hits on 2 &amp; 4 (Backbeat)</option>
+        <option value="quarterPulse">Quarter-note pulse</option>
+        <option value="eighthPulse">Eighth-note pulse (Light)</option>
+        <option value="anticipationInto">Anticipation into bar (-&amp; + 1)</option>
+        <option value="anticipateHold">Anticipate + Hold (-&amp; only)</option>
+      </select>
+      <span class="hint">Musical but constrained comping presets (V8).</span>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #ddd;margin:6px 0;" />
+
+    <div class="row">
+       <label for="rhythmStyle">Rhythm style</label>
+       <select id="rhythmStyle">
+         <option value="pop" selected>Pop</option>
+         <option value="ballad">Ballad</option>
+         <option value="syncopated">Syncopated</option>
+         <option value="sparse">Sparse</option>
+         <option value="latin">Latin</option>
+         <option value="jazz">Jazz</option>
+         <option value="minimalist">Minimalist</option>
+         <option value="flowing">Flowing</option>
+         <option value="dramatic">Dramatic</option>
+         <option value="funky">Funky</option>
+       </select>
+       <span class="hint">Controls melody rhythm vocabulary and feel.</span>
+     </div>
+ 
+     <div class="row">        
+      <label for="melDensity">Melody density</label>
+      <input id="melDensity" type="range" min="0" max="100" value="65" />
+      <span id="melDensityLabel">65</span>
+    </div>
+
+    <div class="row">
+      <label for="chordTonePref">Chord-tone %</label>
+      <input id="chordTonePref" type="range" min="0" max="100" value="70" />
+      <span id="chordTonePrefLabel">70</span>
+    </div>
+
+    <div class="row">
+      <label for="maxLeap">Max leap (semitones)</label>
+      <input id="maxLeap" type="range" min="2" max="12" value="7" />
+      <span id="maxLeapLabel">7</span>
+    </div>
+
+    <div class="row">
+      <label for="phraseMeasures">Phrase length (measures)</label>
+      <input id="phraseMeasures" type="range" min="1" max="8" value="4" />
+      <span id="phraseMeasuresLabel">4</span>
+    </div>
+
+    <div class="row">
+      <label for="motifRepeat">Motif repeat chance %</label>
+      <input id="motifRepeat" type="range" min="0" max="100" value="45" />
+      <span id="motifRepeatLabel">45</span>
+    </div>
+
+    <div class="row">
+      <label for="cadenceStrength">Cadence strength %</label>
+      <input id="cadenceStrength" type="range" min="0" max="100" value="70" />
+      <span id="cadenceStrengthLabel">70</span>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #ddd;margin:6px 0;" />
+
+    <div class="row">
+      <button id="generate">Generate</button>
+      <button id="play">Play</button>
+      <button id="stop" disabled>Stop</button>
+      <button id="copyJson">Copy JSON</button>
+      <span id="status" class="status">Ready</span>
+    </div>
+
+    <div class="row">
+      <button id="record">Record</button>
+      <button id="stopRecord" disabled>Stop & Prepare Download</button>
+      <button id="recordPlay">Record + Play</button>
+      <span class="hint">Recording exports as <b>.webm</b>.</span>
+    </div>
+
+    <div id="downloadArea" class="downloadBox" style="display:none;"></div>
+  </div>
+
+  <div id="messages"></div>
+  <div id="output" class="output"></div>
+
+  <script type="module" src="./utils.js"></script>
+  <script type="module" src="./harmony-engine.js"></script>
+  <script type="module" src="./melody-engine.js"></script>
+  <script type="module" src="./audio-engine.js"></script>
+  <script type="module" src="./ui-controller.js"></script>
+</body>
+</html>
