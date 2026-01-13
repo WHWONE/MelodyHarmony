@@ -5,7 +5,7 @@
 import { DATA, pcToNoteName, pcToPitch, rotate, normalizeAscending } from './utils.js';
 
 // Configuration
-const HARMONIC_STYLE = "Complex";
+const HARMONIC_STYLE = "Simple";
 const USE_DECEPTIVE_CADENCE = false;
 const USE_HARMONIC_MINOR_DOMINANT = true;
 
