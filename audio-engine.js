@@ -23,6 +23,11 @@ let lastRecordingUrl = null;
 export async function ensureAudioReady() {
   if (isAudioReady) return;
 
+  // ✅ NUMBER TWO GOES HERE
+  if (!window.Soundfont) {
+    throw new Error("soundfont-player failed to load (Soundfont is undefined).");
+  }
+  
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
   chordInstrument = await Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
