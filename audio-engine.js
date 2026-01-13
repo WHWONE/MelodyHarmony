@@ -11,6 +11,10 @@ let melodyInstrument = null;
 let scheduledNodes = [];
 let isAudioReady = false;
 
+// Master routing + recording tap
+let masterGain = null;
+let recordDest = null;
+
 // Recording
 let mediaRecorder = null;
 let recordedChunks = [];
@@ -23,15 +27,31 @@ let lastRecordingUrl = null;
 export async function ensureAudioReady() {
   if (isAudioReady) return;
 
-  // ✅ NUMBER TWO GOES HERE
   if (!window.Soundfont) {
     throw new Error("soundfont-player failed to load (Soundfont is undefined).");
   }
-  
+
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-  chordInstrument = await Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
-  melodyInstrument = await Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
+  // Master bus (everything plays through this)
+  masterGain = audioCtx.createGain();
+  masterGain.connect(audioCtx.destination);
+
+  // Recording tap (records the same master output)
+  recordDest = audioCtx.createMediaStreamDestination();
+  masterGain.connect(recordDest);
+
+  // Load instruments and route them to the master bus
+  chordInstrument = await Soundfont.instrument(
+    audioCtx,
+    "acoustic_grand_piano",
+    { destination: masterGain }
+  );
+  melodyInstrument = await Soundfont.instrument(
+    audioCtx,
+    "acoustic_grand_piano",
+    { destination: masterGain }
+  );
 
   isAudioReady = true;
 }
@@ -150,12 +170,10 @@ export function clearDownload(downloadArea) {
 
 export async function startRecording() {
   if (isRecording) return;
+  if (!recordDest) throw new Error("Recording destination not initialized. Call ensureAudioReady() first.");
 
-  const dest = audioCtx.createMediaStreamDestination();
-  audioCtx.destination.connect(dest);
-
-  mediaRecorder = new MediaRecorder(dest.stream);
   recordedChunks = [];
+  mediaRecorder = new MediaRecorder(recordDest.stream);
 
   mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
   mediaRecorder.start();
